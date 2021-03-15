@@ -21,3 +21,14 @@ class Mongo:
 
         }
         await worker_collection.insert_one(document)
+
+    async def find_auth_by_key(self, key: str) -> bool:
+        # {"auth_keys": {$in: ["abc"]}}
+
+        collections_list = await self.db.list_collection_names()
+        for collection in collections_list:
+            collection = self.db.get_collection(collection)
+            collection_querry = await collection.find_one({"auth_keys": {"$in": [key]}})
+            if collection_querry is not None:
+                return True
+            return False
