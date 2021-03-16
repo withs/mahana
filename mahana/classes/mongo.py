@@ -32,3 +32,13 @@ class Mongo:
             if collection_querry is not None:
                 return True
             return False
+
+    async def find_by_worker_name(self, worker_name: str) -> bool:
+
+        collections_list = await self.db.list_collection_names()
+        for collection in collections_list:
+            collection = self.db.get_collection(collection)
+            collection_querry = await collection.find_one({"worker_name": str(worker_name)})
+            if collection_querry is not None:
+                return True
+            return False
