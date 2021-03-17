@@ -11,6 +11,8 @@ from classes import (
 
 class Worker(web.View):
 
+    # TODO: ajoutez possiblité de trouver un worker par sont id
+
     @Decorators.is_logged_by_cookie
     async def get(self):
         """get workers"""
@@ -72,7 +74,6 @@ class Worker(web.View):
 
         if worker_name is not None:
             is_already_a_worker_with_this_name = await db.find_by_worker_name(worker_name)
-            print(is_already_a_worker_with_this_name)
 
         if is_already_a_worker_with_this_name.result:
             return web.json_response(
@@ -106,6 +107,49 @@ class Worker(web.View):
     @Decorators.is_logged_by_cookie
     async def delete(self):
         """delete a worker"""
+
+        try:
+            json_payload = await self.request.json()
+        except json.decoder.JSONDecodeError:
+            return web.json_response(
+                {"status": "incorrect body"},
+                status=400,
+                content_type="application/json"
+            )
+
+        db = self.request.app["mongo_db"]
+
+        worker_name = json_payload.get("worker_name")
+
+        if worker_name is None:
+            return web.json_response(
+                {"status": "incorrect body"},
+                status=400,
+                content_type="application/json"
+            )
+
+        is_a_worker_with_this_name = await db.find_by_worker_name(worker_name)
+
+        if not is_a_worker_with_this_name.result:
+            return web.json_response(
+                {"status": "No worker found with this name"},
+                status=400,
+                content_type="application/json"
+            )
+
+        delete_worker_req = await db.delete_by_worker_name(worker_name)
+
+        if delete_worker_req.result:
+            return web.json_response(
+                {"status": "worker deteled"},
+                status=200,
+                content_type="application/json"
+            )
+        return web.json_response(
+            {"status": "internal server error"},
+            status=500,
+            content_type="application/json"
+        )
 
     @Decorators.is_logged_by_cookie
     async def patch(self):
