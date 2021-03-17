@@ -84,7 +84,7 @@ class Worker(web.View):
         api_key = Utils.ur_safe_key(key_len=36)
 
         new_user = {
-            "woker_name": json_payload.get("worker_name", "undefined"),
+            "worker_name": json_payload.get("worker_name", "undefined"),
             "worker_display_name": json_payload.get("worker_name", "undefined"),
             "worker_id": str(uuid.uuid4()),
             "last_data_sent": None,
@@ -95,8 +95,10 @@ class Worker(web.View):
             }
         }
 
+        await db.add_new_worker(worker_dict=new_user)
+
         return web.json_response(
-            {"status": "worker created", "api_key":api_key},
+            {"status": "worker created", "api_key": api_key},
             status=201,
             content_type="application/json"
         )
