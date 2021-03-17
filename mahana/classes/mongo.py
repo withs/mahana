@@ -14,9 +14,11 @@ class Mongo:
 
         worker_collection = self.db[f"""worker-{worker_dict["worker_id"]}"""]
 
+        add_new_worker_req = await worker_collection.insert_one(worker_dict)
 
-        a = await worker_collection.insert_one(worker_dict)
-        print(a)
+        if add_new_worker_req.acknowledged:
+            return self.data_class_resp(True, add_new_worker_req.inserted_id)
+        return self.data_class_resp(False, None)
 
     async def find_auth_by_key(self, key: str) -> bool:
         # {"auth_keys": {$in: ["abc"]}}
@@ -42,3 +44,14 @@ class Mongo:
             if collection_querry is not None:
                 return self.data_class_resp(True, collection_querry)
         return self.data_class_resp(False, collection_querry)
+
+    async def delete_by_worker_name(self, worker_name: str):
+
+        worker_dict = await self.find_by_worker_name(worker_name=worker_name)
+
+        worker_collection = self.db[f"""worker-{worker_dict.result_data["worker_id"]}"""]
+
+        delete_worker_req = await self.db.drop_collection(worker_collection)
+        if delete_worker_req["ok"] == 1.0:
+            return self.data_class_resp(True, delete_worker_req)
+        return self.data_class_resp(False, delete_worker_req)
