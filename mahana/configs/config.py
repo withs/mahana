@@ -20,3 +20,6 @@ class DatabaseConfig:
     DB_HOST: str = "127.0.0.1"
 
     CONNECT_URI:str = f"mongodb://{DB_HOST}:{DB_PORT}"
+
+
+    WORKER_PROTECTED_VAL = ["worker_id"]
