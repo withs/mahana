@@ -55,3 +55,36 @@ class Mongo:
         if delete_worker_req["ok"] == 1.0:
             return self.data_class_resp(True, delete_worker_req)
         return self.data_class_resp(False, delete_worker_req)
+
+    async def edit_by_worker_name(self, worker_edit_dict: dict):
+        worker_dict_old = await self.find_by_worker_name(
+            worker_name=worker_edit_dict["worker_name"]
+        )
+
+        if not worker_dict_old.result:
+            return self.data_class_resp(False, None)
+        new_worker_dict = worker_dict_old.result_data
+        worker_collection = self.db[f"""worker-{worker_dict_old.result_data["worker_id"]}"""]
+
+        edited_keys = []
+
+        for key, val in worker_edit_dict.items():
+            if key in new_worker_dict and key not in DatabaseConfig.WORKER_PROTECTED_VAL:
+
+                if isinstance(val, list):
+                    new_worker_dict[key] += val
+                elif isinstance(val, dict):
+                    new_worker_dict[key] = (new_worker_dict[key] | val)
+                else:
+                    new_worker_dict[key] = val
+
+                edited_keys.append(key)
+
+        update_req = await worker_collection.update_one(
+            {'_id': worker_dict_old.result_data["_id"]}, {'$set': new_worker_dict}
+        )
+
+        if update_req.acknowledged:
+            return self.data_class_resp(True, edited_keys)
+
+        return self.data_class_resp(True, edited_keys)
