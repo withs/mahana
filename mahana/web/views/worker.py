@@ -11,7 +11,8 @@ from classes import (
 
 class Worker(web.View):
 
-    # TODO: ajoutez possiblité de trouver un worker par sont id
+    # TODO: ajouter possiblité de trouver un worker par sont id
+    # TODO: ajouter argument url dans le get pour return tout les worker + arg
 
     @Decorators.is_logged_by_cookie
     async def get(self):
@@ -48,6 +49,7 @@ class Worker(web.View):
 
         worker_data = is_a_worker_with_this_name.result_data
         worker_data.pop("auth_keys")
+        worker_data.pop("_id")
 
         return web.json_response(
             worker_data,
@@ -154,3 +156,49 @@ class Worker(web.View):
     @Decorators.is_logged_by_cookie
     async def patch(self):
         """edit worker"""
+
+        try:
+            json_payload = await self.request.json()
+        except json.decoder.JSONDecodeError:
+            return web.json_response(
+                {"status": "incorrect body"},
+                status=400,
+                content_type="application/json"
+            )
+
+        db = self.request.app["mongo_db"]
+
+        worker_name = json_payload.get("worker_name")
+
+        if worker_name is None:
+            return web.json_response(
+                {"status": "incorrect body"},
+                status=400,
+                content_type="application/json"
+            )
+
+        is_a_worker_with_this_name = await db.find_by_worker_name(worker_name)
+
+        if not is_a_worker_with_this_name.result:
+            return web.json_response(
+                {"status": "No worker found with this name"},
+                status=400,
+                content_type="application/json"
+            )
+
+        edit_req = await db.edit_by_worker_name(json_payload)
+        if edit_req.result:
+            return web.json_response(
+                {
+                    "status": 'edited',
+                    "edited_keys": edit_req.result_data
+                },
+                status=200,
+                content_type="application/json"
+            )
+
+        return web.json_response(
+            {"status": "internal server error"},
+            status=500,
+            content_type="application/json"
+        )
