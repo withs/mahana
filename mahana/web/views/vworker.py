@@ -59,12 +59,76 @@ class WorkerView(web.View):
             content_type="application/json"
         )
 
-    
+
     @Decorators.is_logged_by_cookie
     async def delete(self):
         """delete a worker"""
 
 
     @Decorators.is_logged_by_cookie
-    async def patch(self):
+    @Decorators.validate_json_body(pass_json_body=True)
+    async def patch(self, json_payload):
         """edit worker"""
+
+        db_con = self.request.app["mongo_db"]
+
+        worker = await db_con.find_worker(worker_id=json_payload.get("worker_id", None))
+        if worker is None or worker is False:
+            return web.json_response(
+                {
+                    "status": "An error occured",
+                    "error": "missing key: worker_id or cannot find worker with this id",
+                    "return_data": {}
+                },
+                status=400,
+                content_type="application/json"
+            )
+        to_edit_keys = []
+        for key, val in json_payload.items():
+            old_val = worker[key]
+            if key == "worker_name":
+                if val != worker.name:
+                    await worker.change_name(val)
+
+            elif isinstance(val, list):
+                worker[key] += val
+            elif isinstance(val, dict):
+                worker[key] = (worker[key] | val)
+            else:
+                worker[key] = val
+
+            to_edit_keys.append(dict(key=key, old=old_val))
+
+
+        update_req = await worker.update_db()
+
+        edited_keys = []
+        if update_req[0] is True:
+            for edited_key in to_edit_keys:
+                key = edited_key["key"]
+                old = edited_key["old"]
+                new = worker[key]
+
+                if new != old:
+                    edited_key["new"] = new
+                    edited_keys.append(edited_key)
+
+            return web.json_response(
+                {
+                    "status": "edited",
+                    "error": "",
+                    "return_data": edited_keys
+                },
+                status=201,
+                content_type="application/json"
+            )
+
+        return web.json_response(
+            {
+                "status": "An error occured",
+                "error": "unknow",
+                "return_data": {}
+            },
+            status=500,
+            content_type="application/json"
+        )
