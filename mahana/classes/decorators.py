@@ -1,10 +1,12 @@
 import functools
+import json
 from aiohttp import web
 
 
 class Decorators:
     @staticmethod
     def is_logged_by_cookie(coro):
+        """Check if logged by cookie"""
         @functools.wraps(coro)
         async def wrapped(*args, **kwargs):
             self_request = args[0].request
@@ -30,3 +32,25 @@ class Decorators:
 
             return await coro(*args, **kwargs)
         return wrapped
+
+    @staticmethod
+    def validate_json_body(pass_json_body: bool=False):
+        """Validate json body"""
+        def inner(coro):
+            @functools.wraps(coro)
+            async def wrapped(*args, **kwargs):
+                self_request = args[0].request
+
+                try:
+                    json_payload = await self_request.json()
+                except json.decoder.JSONDecodeError:
+                    return web.json_response(
+                        {"status": "incorrect body"},
+                        status=400,
+                        content_type="application/json"
+                    )
+                if pass_json_body:
+                    return await coro(*args, json_payload, **kwargs)
+                return await coro(*args, **kwargs)
+            return wrapped
+        return inner
