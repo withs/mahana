@@ -1,6 +1,11 @@
 from dataclasses import make_dataclass
+import asyncio
 
 from configs.config import DatabaseConfig
+from rich import print
+
+from .worker import Worker
+from .sensor import Sensor
 
 
 class Mongo:
@@ -10,17 +15,7 @@ class Mongo:
         self.data_class_resp = make_dataclass('DbResult', ["result", "result_data"])
 
 
-    async def add_new_worker(self, worker_dict: dict) -> None:
-
-        worker_collection = self.db[f"""worker-{worker_dict["worker_id"]}"""]
-
-        add_new_worker_req = await worker_collection.insert_one(worker_dict)
-
-        if add_new_worker_req.acknowledged:
-            return self.data_class_resp(True, add_new_worker_req.inserted_id)
-        return self.data_class_resp(False, None)
-
-    async def find_auth_by_key(self, key: str) -> bool:
+    async def find_auth_by_key(self, key: str):
         # {"auth_keys": {$in: ["abc"]}}
 
         collections_list = await self.db.list_collection_names()
@@ -32,59 +27,52 @@ class Mongo:
                 return self.data_class_resp(True, collection_querry)
         return self.data_class_resp(False, collection_querry)
 
+    async def add_new_worker(self, worker_dict: dict) -> None:
+
+        worker_collection = self.db[f"""worker-{worker_dict["worker_id"]}"""]
+
+        add_new_worker_req = await worker_collection.insert_one(worker_dict)
+
+        if add_new_worker_req.acknowledged:
+            return self.data_class_resp(True, add_new_worker_req.inserted_id)
+        return self.data_class_resp(False, None)
+
+    async def find_worker(self, worker_name: str= None, worker_id: str= None, check: bool= False):
+        """Find a worker by his name or id"""
+
+        collection_querry = None
+        collection = None
+
+        if worker_id is None:
+            collections_list = await self.db.list_collection_names()
+            for collection in collections_list:
+                collection = self.db.get_collection(collection)
+                collection_querry = await collection.find_one({"worker_name": str(worker_name)})
+                if collection_querry is not None:
+                    worker_id = collection_querry["worker_id"]
+            if worker_id is None:
+                return None
+
+        worker_coll = collection or self.db[f"worker-{worker_id}"]
+        worker_data = collection_querry or await worker_coll.find_one({"worker_id": worker_id})
+
+        if not check:
+            worker_obj = Worker(worker_data, self)
+            return worker_obj
+        return True
 
 
-    async def find_by_worker_name(self, worker_name: str):
+    async def get_worker_sensors(self, worker):
 
+        sensors = []
 
-        collections_list = await self.db.list_collection_names()
-        for collection in collections_list:
-            collection = self.db.get_collection(collection)
-            collection_querry = await collection.find_one({"worker_name": str(worker_name)})
-            if collection_querry is not None:
-                return self.data_class_resp(True, collection_querry)
-        return self.data_class_resp(False, collection_querry)
+        worker_coll = self.db[f"worker-{worker.id}"]
+        sensors_list_id = await worker_coll.find_one({"worker_id": worker.id})
 
-    async def delete_by_worker_name(self, worker_name: str):
+        for sensor_id in sensors_list_id["sensors"]:
+            sensor_data = await worker_coll.find_one({"censor_id": sensor_id})
+            sensor_obj = Sensor(sensor_data, worker)
+            sensors.append(sensor_obj)
 
-        worker_dict = await self.find_by_worker_name(worker_name=worker_name)
-
-        worker_collection = self.db[f"""worker-{worker_dict.result_data["worker_id"]}"""]
-
-        delete_worker_req = await self.db.drop_collection(worker_collection)
-        if delete_worker_req["ok"] == 1.0:
-            return self.data_class_resp(True, delete_worker_req)
-        return self.data_class_resp(False, delete_worker_req)
-
-    async def edit_by_worker_name(self, worker_edit_dict: dict):
-        worker_dict_old = await self.find_by_worker_name(
-            worker_name=worker_edit_dict["worker_name"]
-        )
-
-        if not worker_dict_old.result:
-            return self.data_class_resp(False, None)
-        new_worker_dict = worker_dict_old.result_data
-        worker_collection = self.db[f"""worker-{worker_dict_old.result_data["worker_id"]}"""]
-
-        edited_keys = []
-
-        for key, val in worker_edit_dict.items():
-            if key in new_worker_dict and key not in DatabaseConfig.WORKER_PROTECTED_VAL:
-
-                if isinstance(val, list):
-                    new_worker_dict[key] += val
-                elif isinstance(val, dict):
-                    new_worker_dict[key] = (new_worker_dict[key] | val)
-                else:
-                    new_worker_dict[key] = val
-
-                edited_keys.append(key)
-
-        update_req = await worker_collection.update_one(
-            {'_id': worker_dict_old.result_data["_id"]}, {'$set': new_worker_dict}
-        )
-
-        if update_req.acknowledged:
-            return self.data_class_resp(True, edited_keys)
-
-        return self.data_class_resp(True, edited_keys)
+        worker.sensors = sensors
+        return sensors
