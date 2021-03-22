@@ -6,8 +6,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from aiohttp import web
 
 from web.views import (
-    Home,
-    Worker
+    HomeView,
+    WorkerView
 )
 
 from classes import (
@@ -26,8 +26,8 @@ class Mahana:
     def _setup_routes(self):
         routes = web.RouteTableDef()
 
-        self.app.router.add_view("/", Home)
-        self.app.router.add_view("/worker", Worker)
+        self.app.router.add_view("/", HomeView)
+        self.app.router.add_view("/worker", WorkerView)
 
         routes.static("/static", str(AppConfig.APP_PATH.joinpath("web", "static")), show_index=True)
         self.app.add_routes(routes)
