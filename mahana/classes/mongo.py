@@ -27,11 +27,11 @@ class Mongo:
                 return self.data_class_resp(True, collection_querry)
         return self.data_class_resp(False, collection_querry)
 
-    async def add_new_worker(self, worker_dict: dict) -> None:
+    async def add_new_worker(self, worker):
 
-        worker_collection = self.db[f"""worker-{worker_dict["worker_id"]}"""]
+        worker_collection = self.db[f"""worker-{worker.id}"""]
 
-        add_new_worker_req = await worker_collection.insert_one(worker_dict)
+        add_new_worker_req = await worker_collection.insert_one(worker.to_dict())
 
         if add_new_worker_req.acknowledged:
             return self.data_class_resp(True, add_new_worker_req.inserted_id)
@@ -56,6 +56,9 @@ class Mongo:
         worker_coll = collection or self.db[f"worker-{worker_id}"]
         worker_data = collection_querry or await worker_coll.find_one({"worker_id": worker_id})
 
+        if worker_data is None:
+            return False
+
         if not check:
             worker_obj = Worker(worker_data, self)
             return worker_obj
@@ -67,12 +70,25 @@ class Mongo:
         sensors = []
 
         worker_coll = self.db[f"worker-{worker.id}"]
-        sensors_list_id = await worker_coll.find_one({"worker_id": worker.id})
 
-        for sensor_id in sensors_list_id["sensors"]:
+        for sensor_id in worker.sensors_id:
             sensor_data = await worker_coll.find_one({"censor_id": sensor_id})
             sensor_obj = Sensor(sensor_data, worker)
             sensors.append(sensor_obj)
 
         worker.sensors = sensors
         return sensors
+
+    async def edit_worker(self, worker):
+        worker_coll = self.db[f"worker-{worker.id}"]
+        worker_dict = worker.to_dict()
+        #print(worker_dict)
+
+        update_req = await worker_coll.update_one(
+            {'worker_id': worker.id}, {'$set': worker_dict}
+        )
+
+        if update_req.acknowledged:
+            return self.data_class_resp(True, update_req.modified_count)
+
+        return self.data_class_resp(False, 0)
