@@ -1,6 +1,7 @@
-from .home import Home
-from .data import Data
-from .worker import Worker
+from .home import HomeView
+from .data import DataView
+from .vworker import WorkerView
+from .vsensor import SensorView
 
 
-__ALL__ = ["Home", "Data", "Worker"]
+__ALL__ = ["HomeView", "DataView", "WorkerView", "SensorView"]
