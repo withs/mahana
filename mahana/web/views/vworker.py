@@ -9,10 +9,7 @@ from rich import print
 
 from classes import (
     Decorators,
-    Utils
-)
-
-from classes import (
+    Utils,
     Worker
 )
 
@@ -22,9 +19,58 @@ class WorkerView(web.View):
     # TODO: ajouter argument url dans le get pour return tout les worker + arg
 
     @Decorators.is_logged_by_cookie
-    async def get(self):
+    @Decorators.validate_json_body(pass_json_body=True)
+    async def get(self, json_payload):
         """get workers"""
 
+        desired_keys = json_payload.get("keys", None)
+        if desired_keys is None:
+            return web.json_response(
+                {
+                    "status": "An error occured",
+                    "error": "missing key : keys",
+                    "return_data": {}
+                },
+                status=400,
+                content_type="application/json"
+            )
+
+        db_con = self.request.app["mongo_db"]
+
+        worker = await db_con.find_worker(
+            worker_id=json_payload.get("worker_id", None),
+            worker_name=json_payload.get("worker_name", None)
+            )
+        if not worker:
+            return web.json_response(
+                {
+                    "status": "An error occured",
+                    "error": "cannot find this worker",
+                    "return_data": {}
+                },
+                status=400,
+                content_type="application/json"
+            )
+
+        returned_keys = {}
+
+        if "*" in desired_keys:
+            returned_keys = worker.to_dict()
+        else:
+            for key in desired_keys:
+                val = worker[key]
+                if val is not None:
+                    returned_keys[key] = val
+
+        return web.json_response(
+            {
+                "status": "Ok",
+                "error": "",
+                "return_data": returned_keys
+            },
+            status=200,
+            content_type="application/json"
+        )
 
     @Decorators.is_logged_by_cookie
     @Decorators.validate_json_body(pass_json_body=True)
