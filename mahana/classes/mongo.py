@@ -39,7 +39,6 @@ class Mongo:
 
     async def find_worker(self, worker_name: str= None, worker_id: str= None, check: bool= False):
         """Find a worker by his name or id"""
-
         collection_querry = None
         collection = None
 
@@ -50,8 +49,9 @@ class Mongo:
                 collection_querry = await collection.find_one({"worker_name": str(worker_name)})
                 if collection_querry is not None:
                     worker_id = collection_querry["worker_id"]
+                    break
             if worker_id is None:
-                return None
+                return False
 
         worker_coll = collection or self.db[f"worker-{worker_id}"]
         worker_data = collection_querry or await worker_coll.find_one({"worker_id": worker_id})

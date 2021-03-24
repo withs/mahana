@@ -136,7 +136,7 @@ class Worker:
         return self._name
 
     async def change_name(self, new_name):
-        name_check = await self.db.find_worker(worker_name=new_name)
+        name_check = await self.db.find_worker(worker_name=new_name, check=True)
         if name_check:
             return self._name
         if len(new_name) != 0:
