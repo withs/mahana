@@ -82,7 +82,6 @@ class Mongo:
     async def edit_worker(self, worker):
         worker_coll = self.db[f"worker-{worker.id}"]
         worker_dict = worker.to_dict()
-        #print(worker_dict)
 
         update_req = await worker_coll.update_one(
             {'worker_id': worker.id}, {'$set': worker_dict}
@@ -92,3 +91,12 @@ class Mongo:
             return self.data_class_resp(True, update_req.modified_count)
 
         return self.data_class_resp(False, 0)
+
+    async def delete_worker(self, worker):
+
+        worker_coll = self.db[f"worker-{worker.id}"]
+
+        delete_worker_req = await self.db.drop_collection(worker_coll)
+        if delete_worker_req.get("ok") == 1.0:
+            return True
+        return False
