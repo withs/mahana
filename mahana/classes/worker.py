@@ -141,3 +141,9 @@ class Worker:
             return self._name
         if len(new_name) != 0:
             self._name = new_name
+
+    async def delete(self):
+        delete_req = await self.db.delete_worker(worker=self)
+        if delete_req:
+            return (True, "worker deleted")
+        return (False, "an error while trying to delete worker")
