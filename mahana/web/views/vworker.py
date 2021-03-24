@@ -61,8 +61,47 @@ class WorkerView(web.View):
 
 
     @Decorators.is_logged_by_cookie
-    async def delete(self):
+    @Decorators.validate_json_body(pass_json_body=True)
+    async def delete(self, json_payload):
         """delete a worker"""
+
+        db_con = self.request.app["mongo_db"]
+
+        worker = await db_con.find_worker(
+            worker_id=json_payload.get("worker_id", None),
+            worker_name=json_payload.get("worker_name", None)
+            )
+        if not worker:
+            return web.json_response(
+                {
+                    "status": "An error occured",
+                    "error": "cannot find this worker",
+                    "return_data": {}
+                },
+                status=400,
+                content_type="application/json"
+            )
+
+        delete_req = await worker.delete()
+        if delete_req[0]:
+            return web.json_response(
+                {
+                    "status": "worker deleted",
+                    "error": "",
+                    "return_data": {}
+                },
+                status=200,
+                content_type="application/json"
+            )
+        return web.json_response(
+            {
+                "status": "An error occured",
+                "error": "cannot delete the worker",
+                "return_data": {}
+            },
+            status=204,
+            content_type="application/json"
+        )
 
 
     @Decorators.is_logged_by_cookie
@@ -73,7 +112,7 @@ class WorkerView(web.View):
         db_con = self.request.app["mongo_db"]
 
         worker = await db_con.find_worker(worker_id=json_payload.get("worker_id", None))
-        if worker is None or worker is False:
+        if not worker:
             return web.json_response(
                 {
                     "status": "An error occured",
@@ -98,7 +137,6 @@ class WorkerView(web.View):
                 worker[key] = val
 
             to_edit_keys.append(dict(key=key, old=old_val))
-
 
         update_req = await worker.update_db()
 
