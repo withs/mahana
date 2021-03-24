@@ -61,6 +61,9 @@ class Worker:
         if len(missing_key) != 0:
             return (False, missing_key)
 
+        if len(new_worker_data.get("worker_name")) == 0:
+            return (False, "Blank worker_name")
+
         check_if_exist = await db_con.find_worker(
             worker_name=new_worker_data.get("worker_name"),
             check=True
